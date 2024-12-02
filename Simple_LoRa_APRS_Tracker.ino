@@ -66,8 +66,31 @@ const static char comment[] = "PUNY TRACKER ON THE RUN";
 #define CALLSIGNS_NUM	(sizeof(callsigns) / sizeof(callsigns[0]))
 TinyGPSPlus gps;
 SPIClass * hspi = new SPIClass(HSPI);
+
+#ifdef ARDUINO_LORA_E5_DEV_BOARD
+STM32WLx radio = new STM32WLx_Module(); 
+
+//APRSClient aprs(&radio);  // had this in my code, but its not in this code. May not be needed
+
+// set RF switch configuration for EBytes E77 dev board
+// PB3 is an LED - activates while transmitting
+// NOTE: other boards may be different!
+//       Some boards may not have either LP or HP.
+//       For those, do not set the LP/HP entry in the table.
+static const uint32_t rfswitch_pins[] =
+                         {PA6,  PA7,  PB3, RADIOLIB_NC, RADIOLIB_NC};
+static const Module::RfSwitchMode_t rfswitch_table[] = {
+  {STM32WLx::MODE_IDLE,  {LOW,  LOW,  LOW}},
+  {STM32WLx::MODE_RX,    {LOW, HIGH, LOW}},
+  {STM32WLx::MODE_TX_LP, {HIGH, LOW, HIGH}},
+  {STM32WLx::MODE_TX_HP, {HIGH, LOW, HIGH}},
+  END_OF_MODE_TABLE,
+};
+
+#else
 // NSS, DIO1, NRST, BUSY, SPI
 SX1268 radio = new Module(15, 33, 23, 39, *hspi);
+#endif
 
 unsigned int volatile timer = period;
 
@@ -82,16 +105,19 @@ void setup(void)
 	attachInterrupt(digitalPinToInterrupt(PPS), pps, RISING);
 
 	hspi->begin();
-	radio.begin(430.64);
+	radio.begin(433.775);
+      #ifdef ARDUINO_LORA_E5_DEV_BOARD
+      #else
 	radio.setRfSwitchPins(2, 4);
+      #endif
 	radio.setOutputPower(22);
 	radio.setBandwidth(125.0);
-	radio.setCodingRate(8);
+	radio.setCodingRate(5);
 	radio.setSpreadingFactor(12);
 	radio.setPreambleLength(32);
 	radio.autoLDRO();
 	radio.setCRC(2); // Enable 16 bit CRC
-
+	
 	DBG.println("INIT DONE!");
 }
 
